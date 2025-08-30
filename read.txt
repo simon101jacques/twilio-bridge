@@ -1,0 +1,18 @@
+1 - ACTIVATE VENV
+source /Users/sj/Documents/AppDev/Git/cloud_run_functions_mobileapps/sillybee/signup_backend/venv_crf/bin/activate
+
+2 - CHOOSE PROJECT
+echo $GOOGLE_CLOUD_PROJECT
+export GOOGLE_CLOUD_PROJECT=bee-dev-capitalai
+
+3 - pass g creds
+export GOOGLE_APPLICATION_CREDENTIALS=./private/comm-mvp-BQServiceAccount.json
+
+4- start local server
+python main.py
+
+5- in new terminal change userId and enter this
+curl -X POST http://localhost:8080/init-user \  -H "Content-Type: application/json" \                                                                        
+  -d '{"userId": "jwpcmMt4P1YTDMrwvapDCMuVo4l2"}'
+
+{"status":"created","userId":"jwpcmMt4P1YTDMrwvapDCMuVo4l2"}
