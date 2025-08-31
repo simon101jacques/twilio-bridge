@@ -77,11 +77,6 @@ async def ping():
 # ---------------- Twilio Voice webhook → TwiML ----------------
 @app.api_route("/twilio/voice", methods=["GET", "POST"])
 async def twilio_voice(request: Request):
-    """
-    Respond with <Connect><Stream> to our /media-stream endpoint and log what
-    we’re giving Twilio back. We also include a statusCallback to learn why
-    Twilio might close the stream.
-    """
     http_host = (request.headers.get("X-Forwarded-Host") or request.url.hostname or "").strip()
     http_host = http_host.replace("https://", "").replace("http://", "")
     ws_host = (WS_HOST or CR_HOST or http_host).replace("https://", "").replace("http://", "").strip()
@@ -89,13 +84,30 @@ async def twilio_voice(request: Request):
     ws_url = f"wss://{ws_host}/media-stream"
     status_cb = f"https://{http_host}/stream-status"
 
+    # --- detect caller number ---
+    try:
+        form = await request.form()
+    except Exception:
+        form = {}
+    caller = (form.get("From") or "").strip()
+
+    if caller.startswith("+39"):
+        # Italian
+        intro = "Benvenuto in Lobbi del tuo condominio. Sto verificando l'accesso."
+        ready = "Quando sei pronto, puoi iniziare a parlare."
+        lang = "it-IT"
+    else:
+        # English default
+        intro = "Welcome to your building Lobbi. Checking access."
+        ready = "Okay, you can start talking."
+        lang = "en-US"
+
     vr = VoiceResponse()
-    vr.say("Please wait while I connect you to the assistant.", voice="alice", language="en-US")
+    vr.say(intro, voice="alice", language=lang)
     vr.pause(length=1)
-    vr.say("Okay, you can start talking.", voice="alice", language="en-US")
+    vr.say(ready, voice="alice", language=lang)
 
     connect = Connect()
-    # CRITICAL: track="both" for bidirectional audio
     connect.stream(
         url=ws_url,
         status_callback=status_cb,
@@ -104,8 +116,9 @@ async def twilio_voice(request: Request):
     vr.append(connect)
 
     xml = str(vr)
-    log.info(f"TwiML -> ws:{ws_url}  statusCb:{status_cb}")
+    log.info(f"TwiML -> ws:{ws_url}  statusCb:{status_cb}  caller:{caller} lang:{lang}")
     return HTMLResponse(content=xml, media_type="application/xml")
+
 
 # Twilio will POST here for stream lifecycle: start, mark, media, stop, errors
 @app.post("/stream-status")
